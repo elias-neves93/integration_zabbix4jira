@@ -1,0 +1,1 @@
+{ "fields": { "project": { "id": "14000" }, "priority": { "id": "prioridade" }, "summary": "titulo", "description":"descricao", "issuetype": { "id": "15400" }}}
