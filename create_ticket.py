@@ -126,7 +126,12 @@ def reincidencia(trigger_id):
 
 # Verificando se o chamado existe antes de criar.
 def pesquisa_chamado():
-    url_query = 'http://172.16.70.34:8080/rest/api/2/search?jql=project%20%3D%20OTI%20AND%20issuetype%20in%20(Problema%2C%20"Problema%20-%20Zabbix")%20AND%20status%20in%20(Open%2C%20"Em%20Execução"%2C%20"Aguardando%20Atendimento")'
+
+    x = trigger_id.split(" ")
+    x = x[2]
+    print(x)
+
+    url_query = 'http://172.16.70.34:8080/rest/api/2/search?jql=project%20%3D%20OTI%20AND%20issuetype%20in%20(Problema%2C%20"Problema%20-%20Zabbix")%20AND%20status%20in%20(Open%2C%20"Em%20Execução"%2C%20"Em%20Homologação"%2C%20"Em%20Priorização"%2C%20"Aguardando%20Atendimento"%2C%20"Em%20Validação%20do%20Solicitante"%2C%20"Atendimento%20Pausado"%2C%20"Aguardando%20Execução%20de%20Script"%2C%20"Aguardando%20Informação"%2C%20"Aguardando%20Informação%20do%20Solicitante%20SC"%2C%20"Aguardando%20Homologação"%2C%20"Validar%20e%20Executar%20Script"%2C%20"Aguardando%20Execução%20e%20Validação%20Manual"%2C%20"Aguardando%20Code%20Review")%20AND%20text%20~%20"Trigger%20ID%3A%20{0}%22'.format(x)
 
     r = requests.get(url_query, headers={'Content-Type':'application/json'}, auth=HTTPBasicAuth(usuario,senha))
     resultado = r.text
