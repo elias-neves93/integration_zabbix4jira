@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-
+import argparse
 import sys
 import requests
 from requests.auth import HTTPBasicAuth
@@ -8,32 +8,40 @@ import json
 from unicodedata import normalize
 
 print ("Integration Zabbix X Jira")
-url = 'http://localhost:8080/rest/api/2/issue' # Endereço da API Jira; eg: http://localhost:8080/rest/api/2/issue
-usuario = 'user' # Usuario
-senha = 'password' # Senha
 
-#reload(sys)
-#sys.setdefaultencoding('utf8')
-
-# Função para remover acentos da String.
-
-def remover_acentos(txt):
-    return normalize('NFKD', txt).encode('ASCII','ignore').decode('ASCII')
-
-# Recebendo parametros e removendo acentos.
-
-trigger_id = sys.argv[2]
-titulo = sys.argv[3]
-titulo_sem_acento = remover_acentos(titulo)
-descricao = sys.argv[4]
-descricao_sem_acento = remover_acentos(descricao)
+address = 'http://172.16.70.34:8080' # Endereço da API Jira; eg: http://localhost:8080/rest/api/2/issue
+user = 'user' # User
+password = 'pass' # Password
 
 
-# Preparando JSON para realizar a Requisição.
-def preparando_arquivo():
+class Ticket(object):
+    def __init__(self, priority, title, description, status):
+        self.__priority = priority
+        self.__title = title
+        self.__description = description
+        self.__status = status
+
+    @property
+    def priority(self):
+        return self.__priority
+
+    @property
+    def title(self):
+        return self.__title
+
+    @property
+    def description(self):
+        return self.__description
+
+    @property
+    def status(self):
+        return self.__status
+
+
+def make_valid_json_create_issue(priority, title, description, status):
 
     arquivo = '''
-{
+    {
       "fields": {
         "project": {
           "id": "14000"
@@ -48,104 +56,117 @@ def preparando_arquivo():
         },
         "customfield_10906": {
             "id":"15704"
+        },
+        "customfield_14901": {
+            "id": "20608"
+        },
+        "customfield_15900": {
+            "id": "18237"
         }
-
-
     	}
-}'''
+    }'''
 
 # Convertendo JSON em dicionario.
     jsonObjectInfo = json.loads(arquivo)
 # Alterando campos do JSON conforme parametros recebidos.
-    jsonObjectInfo["fields"]["priority"]["id"] = "%s" % (sys.argv[1])
-    jsonObjectInfo["fields"]["summary"] = "%s %s" % (trigger_id, titulo_sem_acento)
-    jsonObjectInfo["fields"]["description"] = "%s" % (descricao_sem_acento)
+    jsonObjectInfo["fields"]["priority"]["id"] = "{}".format(priority)
+    jsonObjectInfo["fields"]["summary"] = "{}".format(title)
+    jsonObjectInfo["fields"]["description"] = "{}".format(description)
 
 # Convertendo para um JSON valido.
     json_final = json.dumps(jsonObjectInfo, ensure_ascii=False)
 
     return json_final
 
-# Funcção para criar o chamado. Realizando a Requisição na API do Jira.
-def criando_chamado():
+def make_valid_json_transition_issue():
 
-    final = preparando_arquivo()
+    arquivo = '''
+    {
+    "update": {
+    	"comment": [
+    		{
+    		"add": {
+    		"body": "Normalizado."
+            }
+        	}
+        ]
+    },
+    "transition": {
+    	"id": "311"
+    }
+    }
+    '''
+    return arquivo
 
-    print (final)
-    #headers = {'Content-Type' : 'application/json'}
-    r = requests.post(url, data=(final), headers={'Content-Type':'application/json'}, auth=HTTPBasicAuth(usuario,senha))
+def get_id_issue(title):
 
-# Se o status da Requisição for diferente de 200 mostrar o erro.
-    if r.status_code != 200:
-        raise ValueError(
-        'Request to returned an error %s, the response is:\n%s'
-        % (r.status_code, r.text)
-        )
+    url_query = '''http://172.16.70.34:8080/rest/api/2/search?jql=project = OTI AND issuetype = Alarme AND status in (Open, "Em Priorização", "Aguardando Atendimento", "Aguardando atendimento em segundo nível", "Aguardando atendimento em terceiro nível") AND text ~ "Trigger ID: {}"'''.format(title)
 
+    r = requests.get(url_query, headers={'Content-Type':'application/json'}, auth=HTTPBasicAuth(user,password))
+    result = json.loads(r.text)
+    id = result["issues"][0]["key"]
+    print("O Nº do chamado é o: {}".format(id))
+    return id
+
+# Função para remover acentos da String.
+
+def remover_acentos(txt):
+    return normalize('NFKD', txt).encode('ASCII','ignore').decode('ASCII')
+
+def create_ticket(priority, title, description, status):
+
+    title = remover_acentos(title)
+    description = remover_acentos(description)
+
+    arquivo = make_valid_json_create_issue(priority, title, description, status)
+
+    address_create_issue = address+'/rest/api/2/issue'
+
+    r = requests.post(address_create_issue, data=(arquivo), headers={'Content-Type':'application/json'}, auth=HTTPBasicAuth(user,password))
+
+    # Se o status da Requisição for diferente de 200 mostrar o erro.
+    if r.status_code != 200 or r.status_code != 201:
+        raise ValueError('Request to returned an error {}, the response is:\n{}'.format(r.status_code, r.text))
     return 0
 
-# Caso o chamado já existe atualiza a reincidencia de forma gradual.
-def reincidencia(trigger_id):
 
-    json_update = '''
-{
-      "fields": {
-
-        "customfield_15902": 0
-      }
-}
-                  '''
-
-    x = trigger_id.split(" ")
-    x = x[2]
-    print(x)
-
-    url_query = 'http://172.16.70.34:8080/rest/api/2/search?jql=project%20%3D%20OTI%20AND%20issuetype%20in%20(Problema%2C%20%22Problema%20-%20Zabbix%22)%20AND%20status%20in%20(Open%2C%20%22Em%20Execu%C3%A7%C3%A3o%22%2C%20%22Em%20Prioriza%C3%A7%C3%A3o%22%2C%20%22Aguardando%20Atendimento%22)%20AND%20text%20~%20%22Trigger%20ID%3A%20{}%22'.format(x)
-    r = requests.get(url_query, headers={'Content-Type':'application/json'}, auth=HTTPBasicAuth(usuario,senha))
-
-    chamado = json.loads(r.text)
-
-    id = chamado["issues"][0]["id"]
-
-    reincidencia = chamado["issues"][0]["fields"]["customfield_15902"]
+def close_ticket(title):
 
 
+    arquivo = make_valid_json_transition_issue()
+    title = title.split(" ")
+    trigger_id = title[2]
+    issue_key = get_id_issue(trigger_id)
 
-    jsonObjectInfo = json.loads(json_update)
-    jsonObjectInfo["fields"]["customfield_15902"] = reincidencia + 1
+    address_transition_issue = address+'/rest/api/2/issue/{}/transitions'.format(issue_key)
 
-    json_final = json.dumps(jsonObjectInfo, ensure_ascii=False)
+    r = requests.post(address_transition_issue, data=arquivo, headers={'Content-Type':'application/json'}, auth=HTTPBasicAuth(user,password))
+    return 'Status Code: {} - Chamado Cancelado: {}'.format(r.status_code, r.text)
 
-    print(json_final)
+def main():
 
-    url_update = 'http://172.16.70.34:8080/rest/api/2/issue/{}'.format(id)
+    # Fazendo os parses para pegar as infos.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--priority", metavar="Int", help="Priority issue", type=int, required=True)
+    parser.add_argument("--title", metavar="Str", help="Title Issue", type=str, required=True)
+    parser.add_argument("--description", metavar="Str", help="Description Issue", type=str, required=True)
+    parser.add_argument("--status", metavar="Str", help="Status", type=str, required=True)
 
-    u = requests.put(url_update,data=(json_final),headers={'Content-Type':'application/json'}, auth=HTTPBasicAuth(usuario,senha))
+    args = parser.parse_args()
 
-    return 0
+    # Atribuindo os parses nas variaveis
+    priority = args.priority
+    title = args.title
+    description = args.description
+    status = args.status
 
-# Verificando se o chamado existe antes de criar.
-def pesquisa_chamado():
+    # Criando o OBJ do Ticket
+    ticket = Ticket(priority, title, description, status)
 
-    x = trigger_id.split(" ")
-    x = x[2]
-    print(x)
-
-    url_query = 'http://172.16.70.34:8080/rest/api/2/search?jql=project%20%3D%20OTI%20AND%20issuetype%20in%20(Problema%2C%20"Problema%20-%20Zabbix")%20AND%20status%20in%20(Open%2C%20"Em%20Execução"%2C%20"Em%20Homologação"%2C%20"Em%20Priorização"%2C%20"Aguardando%20Atendimento"%2C%20"Em%20Validação%20do%20Solicitante"%2C%20"Atendimento%20Pausado"%2C%20"Aguardando%20Execução%20de%20Script"%2C%20"Aguardando%20Informação"%2C%20"Aguardando%20Informação%20do%20Solicitante%20SC"%2C%20"Aguardando%20Homologação"%2C%20"Validar%20e%20Executar%20Script"%2C%20"Aguardando%20Execução%20e%20Validação%20Manual"%2C%20"Aguardando%20Code%20Review")%20AND%20text%20~%20"Trigger%20ID%3A%20{0}%22'.format(x)
-
-    r = requests.get(url_query, headers={'Content-Type':'application/json'}, auth=HTTPBasicAuth(usuario,senha))
-    resultado = r.text
-
-    if trigger_id in resultado:
-        print("Existe")
-        reincidencia(trigger_id)
-
+    if ticket.status == 'PROBLEM':
+        create_ticket(ticket.priority, ticket.title, ticket.description, ticket.status)
     else:
-        criando_chamado()
-        print ('criando chamado')
+        print(close_ticket(ticket.title))
 
-    return 0
-
-
-if ( __name__ == "__main__" ):
-    pesquisa_chamado()
+if __name__ == "__main__":
+    main()
