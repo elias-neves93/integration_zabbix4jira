@@ -164,7 +164,14 @@ def main():
     ticket = Ticket(priority, title, description, status)
 
     if ticket.status == 'PROBLEM':
-        create_ticket(ticket.priority, ticket.title, ticket.description, ticket.status)
+
+        title = ticket.title.split(" ")
+        trigger_id = title[2]
+        try:
+            issue_key = get_id_issue(trigger_id)
+        except:
+            create_ticket(ticket.priority, ticket.title, ticket.description, ticket.status)
+
     else:
         print(close_ticket(ticket.title))
 
