@@ -10,8 +10,8 @@ from unicodedata import normalize
 print ("Integration Zabbix X Jira")
 
 address = 'http://172.16.70.34:8080' # Endereço da API Jira; eg: http://localhost:8080/rest/api/2/issue
-user = 'monitoracao2' # User
-password = 'Net$hoe$@BR2018' # Password
+user = 'user' # User
+password = 'pass' # Password
 
 
 class Ticket(object):
