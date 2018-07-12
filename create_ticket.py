@@ -15,12 +15,12 @@ password = 'pass' # Password
 
 
 class Ticket(object):
-    def __init__(self, priority, title, description, status, ack):
+    def __init__(self, priority, title, description, status):
         self.__priority = priority
         self.__title = title
         self.__description = description
         self.__status = status
-        self.__ack = ack
+
 
     @property
     def priority(self):
@@ -37,10 +37,6 @@ class Ticket(object):
     @property
     def status(self):
         return self.__status
-
-    @property
-    def ack(self):
-        return self.__ack
 
 
 def make_valid_json_create_issue(priority, title, description, status):
@@ -97,7 +93,7 @@ def make_valid_json_transition_issue():
         ]
     },
     "transition": {
-    	"id": "311"
+    	"id": "411"
     }
     }
     '''
@@ -182,7 +178,6 @@ def main():
     parser.add_argument("--title", metavar="Str", help="Title Issue", type=str, required=True)
     parser.add_argument("--description", metavar="Str", help="Description Issue", type=str, required=True)
     parser.add_argument("--status", metavar="Str", help="Status", type=str, required=True)
-    parser.add_argument("--ack", metavar="Str", help="Ack", type=str, required=False)
 
     args = parser.parse_args()
 
@@ -191,10 +186,9 @@ def main():
     title = args.title
     description = args.description
     status = args.status
-    ack = args.ack
 
     # Criando o OBJ do Ticket
-    ticket = Ticket(priority, title, description, status, ack)
+    ticket = Ticket(priority, title, description, status)
 
     if ticket.status == 'PROBLEM':
 
@@ -211,10 +205,10 @@ def main():
             create_ticket(ticket.priority, ticket.title, ticket.description, ticket.status)
 
     elif ticket.status == 'OK':
-        print('Fechando chamados pendentes...', close_ticket(ticket.title, url_query='project = OTI AND issuetype = Alarme AND status in (Open, "Em Priorização")  AND "Indicar o time" = "Operações - NOC" AND "Nível de Atendimento" = NOC'))
+        print('Fechando chamados pendentes...', close_ticket(ticket.title, url_query='project = OTI AND issuetype = Alarme AND status in (Open, "Em Priorização", "Aguardando Atendimento") AND "Indicar o time" = "Operações - NOC" AND "Nível de Atendimento" = NOC'))
 
     else:
-        print(close_ticket(ticket.title, url_query='project = OTI AND issuetype = Alarme AND status in (Open, "Em Priorização", "Aguardando Atendimento", "Em Priorização do PO", "Aguardando atendimento em segundo nível", "Aguardando atendimento em terceiro nível")'))
+        print(close_ticket(ticket.title, url_query='project = OTI AND issuetype = Alarme AND status in (Open, "Aguardando Atendimento", "Em Priorização do PO", "Aguardando atendimento em segundo nível", "Aguardando atendimento em terceiro nível") AND "Indicar o time" in (Operações, "Operações - Integrações", "Operações - Materiais", "Operações - Vendas", "Operações – N1 CD")'))
 
 if __name__ == "__main__":
     main()
